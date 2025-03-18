@@ -12,6 +12,57 @@ with open("sleepPredict.pkl", "rb") as file:
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
+# Simple response dictionary for the chatbot
+CHATBOT_RESPONSES = {
+    "greeting": ["Hello!", "Hi there!", "Hey! How can I help you with your sleep today?"],
+    "goodbye": ["Goodbye!", "Take care!", "Sleep well!"],
+    "sleep_tips": [
+        "Here are some tips for better sleep:\n1. Maintain a consistent sleep schedule\n2. Create a relaxing bedtime routine\n3. Keep your bedroom cool and dark\n4. Avoid screens before bedtime\n5. Exercise regularly but not close to bedtime",
+        "Try these sleep hygiene practices:\n- Avoid caffeine late in the day\n- Create a comfortable sleep environment\n- Manage stress through relaxation techniques\n- Limit daytime naps\n- Stay active during the day"
+    ],
+    "sleep_duration": [
+        "Most adults need 7-9 hours of sleep per night. However, individual needs may vary.",
+        "The recommended sleep duration is:\n- Adults: 7-9 hours\n- Teenagers: 8-10 hours\n- Children: 9-11 hours\n- Infants: 12-15 hours"
+    ],
+    "default": ["I'm not sure about that. Could you rephrase your question?", "I'm here to help with sleep-related questions. Could you ask something specific about sleep?"]
+}
+
+def get_chatbot_response(message):
+    message = message.lower()
+    
+    # Check for greetings
+    if any(word in message for word in ["hi", "hello", "hey"]):
+        return np.random.choice(CHATBOT_RESPONSES["greeting"])
+    
+    # Check for goodbyes
+    if any(word in message for word in ["bye", "goodbye", "see you"]):
+        return np.random.choice(CHATBOT_RESPONSES["goodbye"])
+    
+    # Check for sleep tips requests
+    if any(word in message for word in ["tips", "advice", "help", "improve", "better"]):
+        return np.random.choice(CHATBOT_RESPONSES["sleep_tips"])
+    
+    # Check for sleep duration questions
+    if any(word in message for word in ["how long", "duration", "hours", "sleep time"]):
+        return np.random.choice(CHATBOT_RESPONSES["sleep_duration"])
+    
+    # Default response
+    return np.random.choice(CHATBOT_RESPONSES["default"])
+
+@app.route("/chat", methods=["POST"])
+def chat():
+    try:
+        data = request.get_json()
+        message = data.get("message", "")
+        
+        if not message:
+            return jsonify({"error": "No message provided"}), 400
+            
+        response = get_chatbot_response(message)
+        return jsonify({"response": response})
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
 @app.route("/predict", methods=["POST"])
 def predict():

@@ -1,6 +1,7 @@
 'use client'
 import React, { useState } from 'react';
 import { Moon, Sun, Pill, Coffee } from 'lucide-react';
+import Chatbot from '@/components/Chatbot';
 
 export default function SleepQualityPredictor() {
   const [formData, setFormData] = useState({
@@ -143,6 +144,7 @@ export default function SleepQualityPredictor() {
           </div>
         </div>
       </div>
+      <Chatbot />
     </div>
   );
 }

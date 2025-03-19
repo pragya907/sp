@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import pickle
 import numpy as np
+from user_manager import UserManager
 
 # Load the model and scaler (if needed)
 with open("sleepPredict.pkl", "rb") as file:
@@ -12,10 +13,16 @@ with open("sleepPredict.pkl", "rb") as file:
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
+# Initialize user manager
+user_manager = UserManager()
+
 # Enhanced response dictionary for the chatbot
 CHATBOT_RESPONSES = {
     "greeting": ["Hello!", "Hi there!", "Hey! How can I help you with your sleep today?"],
     "goodbye": ["Goodbye!", "Take care!", "Sleep well!"],
+    "help": [
+        "Here are some topics you can ask about:\n1. How can I improve my sleep quality?\n2. What's the recommended sleep duration?\n3. Tell me about sleep hygiene\n4. How to create a good sleep routine?\n5. What affects sleep quality?\n\nYou can also type 'prescription' to get a personalized sleep prescription based on your data."
+    ],
     "sleep_tips": [
         "Here are some tips for better sleep:\n1. Maintain a consistent sleep schedule\n2. Create a relaxing bedtime routine\n3. Keep your bedroom cool and dark\n4. Avoid screens before bedtime\n5. Exercise regularly but not close to bedtime",
         "Try these sleep hygiene practices:\n- Avoid caffeine late in the day\n- Create a comfortable sleep environment\n- Manage stress through relaxation techniques\n- Limit daytime naps\n- Stay active during the day"
@@ -36,8 +43,12 @@ CHATBOT_RESPONSES = {
     "default": ["I'm not sure about that. Could you rephrase your question?", "I'm here to help with sleep-related questions. Could you ask something specific about sleep?"]
 }
 
-def get_chatbot_response(message):
+def get_chatbot_response(message, username=None):
     message = message.lower()
+    
+    # Check for help command
+    if message == "help":
+        return np.random.choice(CHATBOT_RESPONSES["help"])
     
     # Check for greetings
     if any(word in message for word in ["hi", "hello", "hey"]):
@@ -46,6 +57,13 @@ def get_chatbot_response(message):
     # Check for goodbyes
     if any(word in message for word in ["bye", "goodbye", "see you"]):
         return np.random.choice(CHATBOT_RESPONSES["goodbye"])
+    
+    # Check for prescription request
+    if message == "prescription" and username:
+        prescription = user_manager.generate_prescription(username)
+        if isinstance(prescription, str):
+            return prescription
+        return f"Here's your personalized sleep prescription:\n\nSleep Quality: {prescription['sleep_quality']}\n\nRecommendations:\n" + "\n".join(f"- {rec}" for rec in prescription['recommendations']) + f"\n\nLifestyle Changes:\n" + "\n".join(f"- {change}" for change in prescription['lifestyle_changes']) + f"\n\nFollow-up: {prescription['follow_up']}"
     
     # Check for sleep tips requests
     if any(word in message for word in ["improve", "tips", "advice", "help", "better"]):
@@ -70,16 +88,42 @@ def get_chatbot_response(message):
     # Default response
     return np.random.choice(CHATBOT_RESPONSES["default"])
 
+@app.route("/register", methods=["POST"])
+def register():
+    try:
+        data = request.get_json()
+        username = data.get("username")
+        email = data.get("email")
+        
+        if not username or not email:
+            return jsonify({"error": "Username and email are required"}), 400
+        
+        success, message = user_manager.create_user(username, email)
+        if success:
+            return jsonify({"message": message})
+        else:
+            return jsonify({"error": message}), 400
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
 @app.route("/chat", methods=["POST"])
 def chat():
     try:
         data = request.get_json()
         message = data.get("message", "")
+        username = data.get("username")
         
         if not message:
             return jsonify({"error": "No message provided"}), 400
-            
-        response = get_chatbot_response(message)
+        
+        response = get_chatbot_response(message, username)
+        
+        # Save chat history if username is provided
+        if username:
+            user_manager.save_chat_history(username, message, response)
+            user_manager.update_google_sheets(username)
+        
         return jsonify({"response": response})
         
     except Exception as e:
@@ -89,6 +133,7 @@ def chat():
 def predict():
     try:
         data = request.get_json()
+        username = data.get("username")
 
         # Extracting the input values from the request
         Q1 = float(data["Q1"])
@@ -116,14 +161,26 @@ def predict():
             recommendations.append("Your sleep quality is good, keep it up!")
             recommendations.append("Maintain your healthy sleep habits.")
 
+        # Save sleep data if username is provided
+        if username:
+            sleep_data = {
+                "Q1": Q1,
+                "Q4": Q4,
+                "Q5": Q5,
+                "Q6": Q6,
+                "sleep_quality": sleep_quality,
+                "recommendations": recommendations
+            }
+            user_manager.save_sleep_data(username, sleep_data)
+            user_manager.update_google_sheets(username)
+
         # Return the result in JSON format
         return jsonify(
             {"sleep_quality": sleep_quality, "recommendations": recommendations}
         )
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 400  # Return a JSON error message
-
+        return jsonify({"error": str(e)}), 400
 
 if __name__ == "__main__":
     app.run(debug=True)

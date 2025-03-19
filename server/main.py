@@ -12,7 +12,7 @@ with open("sleepPredict.pkl", "rb") as file:
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
-# Simple response dictionary for the chatbot
+# Enhanced response dictionary for the chatbot
 CHATBOT_RESPONSES = {
     "greeting": ["Hello!", "Hi there!", "Hey! How can I help you with your sleep today?"],
     "goodbye": ["Goodbye!", "Take care!", "Sleep well!"],
@@ -21,8 +21,17 @@ CHATBOT_RESPONSES = {
         "Try these sleep hygiene practices:\n- Avoid caffeine late in the day\n- Create a comfortable sleep environment\n- Manage stress through relaxation techniques\n- Limit daytime naps\n- Stay active during the day"
     ],
     "sleep_duration": [
-        "Most adults need 7-9 hours of sleep per night. However, individual needs may vary.",
-        "The recommended sleep duration is:\n- Adults: 7-9 hours\n- Teenagers: 8-10 hours\n- Children: 9-11 hours\n- Infants: 12-15 hours"
+        "The recommended sleep duration is:\n- Adults: 7-9 hours\n- Teenagers: 8-10 hours\n- Children: 9-11 hours\n- Infants: 12-15 hours\n\nQuality is just as important as quantity. Make sure you're getting enough deep sleep and REM sleep cycles.",
+        "Most adults need 7-9 hours of sleep per night. However, individual needs may vary. Listen to your body and adjust your sleep schedule accordingly."
+    ],
+    "sleep_hygiene": [
+        "Sleep hygiene refers to healthy sleep habits. Here are the key principles:\n\n1. Environment:\n- Keep your bedroom cool (65-67°F/18-19°C)\n- Make it dark and quiet\n- Use comfortable bedding\n\n2. Habits:\n- Go to bed and wake up at the same time\n- Avoid large meals before bedtime\n- Limit caffeine and alcohol\n- Exercise regularly but not close to bedtime\n\n3. Routine:\n- Create a relaxing bedtime routine\n- Avoid screens 1-2 hours before bed\n- Use relaxation techniques like meditation or reading"
+    ],
+    "sleep_routine": [
+        "Creating a good sleep routine is essential for quality sleep. Here's how:\n\n1. Set a consistent schedule:\n- Go to bed at the same time every night\n- Wake up at the same time every morning\n- Even on weekends, try to maintain this schedule\n\n2. Create a bedtime ritual:\n- Start 30-60 minutes before bed\n- Take a warm bath or shower\n- Read a book or listen to calming music\n- Practice relaxation exercises\n\n3. Prepare your environment:\n- Dim the lights\n- Set the temperature to 65-67°F/18-19°C\n- Remove electronic devices\n- Use white noise if needed"
+    ],
+    "sleep_quality_factors": [
+        "Several factors can affect your sleep quality:\n\n1. Lifestyle Factors:\n- Diet and nutrition\n- Exercise habits\n- Caffeine and alcohol consumption\n- Smoking\n\n2. Environmental Factors:\n- Room temperature\n- Light exposure\n- Noise levels\n- Mattress and pillow quality\n\n3. Psychological Factors:\n- Stress and anxiety\n- Depression\n- Work schedule\n- Screen time before bed\n\n4. Medical Factors:\n- Sleep disorders\n- Medications\n- Chronic pain\n- Other health conditions"
     ],
     "default": ["I'm not sure about that. Could you rephrase your question?", "I'm here to help with sleep-related questions. Could you ask something specific about sleep?"]
 }
@@ -39,12 +48,24 @@ def get_chatbot_response(message):
         return np.random.choice(CHATBOT_RESPONSES["goodbye"])
     
     # Check for sleep tips requests
-    if any(word in message for word in ["tips", "advice", "help", "improve", "better"]):
+    if any(word in message for word in ["improve", "tips", "advice", "help", "better"]):
         return np.random.choice(CHATBOT_RESPONSES["sleep_tips"])
     
     # Check for sleep duration questions
     if any(word in message for word in ["how long", "duration", "hours", "sleep time"]):
         return np.random.choice(CHATBOT_RESPONSES["sleep_duration"])
+    
+    # Check for sleep hygiene questions
+    if any(word in message for word in ["hygiene", "habits", "practices"]):
+        return np.random.choice(CHATBOT_RESPONSES["sleep_hygiene"])
+    
+    # Check for sleep routine questions
+    if any(word in message for word in ["routine", "schedule", "ritual"]):
+        return np.random.choice(CHATBOT_RESPONSES["sleep_routine"])
+    
+    # Check for sleep quality factors
+    if any(word in message for word in ["affects", "factors", "influence", "cause"]):
+        return np.random.choice(CHATBOT_RESPONSES["sleep_quality_factors"])
     
     # Default response
     return np.random.choice(CHATBOT_RESPONSES["default"])

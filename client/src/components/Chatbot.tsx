@@ -1,14 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User } from 'lucide-react';
+import { Send, Bot, User, MessageCircle } from 'lucide-react';
 
 interface Message {
   text: string;
   isUser: boolean;
 }
 
+const INITIAL_OPTIONS = [
+  "How can I improve my sleep quality?",
+  "What's the recommended sleep duration?",
+  "Tell me about sleep hygiene",
+  "How to create a good sleep routine?",
+  "What affects sleep quality?"
+];
+
 const Chatbot: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([
-    { text: "Hello! I'm your sleep assistant. How can I help you today?", isUser: false }
+    { text: "Hello! I'm your sleep assistant. How can I help you today? You can ask me questions about sleep or click on any of the options below.", isUser: false }
   ]);
   const [input, setInput] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -21,6 +29,25 @@ const Chatbot: React.FC = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const handleOptionClick = async (option: string) => {
+    setMessages(prev => [...prev, { text: option, isUser: true }]);
+    try {
+      const response = await fetch('http://localhost:5000/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: option }),
+      });
+
+      const data = await response.json();
+      setMessages(prev => [...prev, { text: data.response, isUser: false }]);
+    } catch (error) {
+      console.error('Error:', error);
+      setMessages(prev => [...prev, { text: "Sorry, I'm having trouble connecting right now. Please try again later.", isUser: false }]);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,6 +118,20 @@ const Chatbot: React.FC = () => {
                 </div>
               </div>
             ))}
+            {messages.length === 1 && (
+              <div className="space-y-2 mt-4">
+                {INITIAL_OPTIONS.map((option, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleOptionClick(option)}
+                    className="w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <MessageCircle size={16} className="text-blue-600" />
+                    <span className="text-gray-700">{option}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
 

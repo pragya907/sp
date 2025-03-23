@@ -14,61 +14,123 @@ CORS(app)  # Enable CORS for all routes
 
 # Enhanced response dictionary for the chatbot
 CHATBOT_RESPONSES = {
-    "greeting": ["Hello!", "Hi there!", "Hey! How can I help you with your sleep today?"],
-    "goodbye": ["Goodbye!", "Take care!", "Sleep well!"],
-    "sleep_tips": [
-        "Here are some tips for better sleep:\n1. Maintain a consistent sleep schedule\n2. Create a relaxing bedtime routine\n3. Keep your bedroom cool and dark\n4. Avoid screens before bedtime\n5. Exercise regularly but not close to bedtime",
-        "Try these sleep hygiene practices:\n- Avoid caffeine late in the day\n- Create a comfortable sleep environment\n- Manage stress through relaxation techniques\n- Limit daytime naps\n- Stay active during the day"
+    "greetings": [
+        "Hello! How can I help you with your sleep today?",
+        "Hi there! What would you like to know about sleep?",
+        "Greetings! I'm here to help with any sleep-related questions."
+    ],
+    "goodbye": [
+        "Goodbye! Sleep well!",
+        "Take care and have a good night!",
+        "See you later! Sweet dreams!"
+    ],
+    "help": [
+        "Here are some topics you can ask about:",
+        "1. How can I improve my sleep quality?",
+        "2. What's the recommended sleep duration?",
+        "3. What are good sleep hygiene practices?",
+        "4. How to establish a sleep routine?",
+        "5. What factors affect sleep quality?",
+        "Just click on any of these options or type your own question!"
+    ],
+    "sleep_quality": [
+        "To improve your sleep quality, try these tips:",
+        "1. Maintain a consistent sleep schedule",
+        "2. Create a relaxing bedtime routine",
+        "3. Keep your bedroom cool, dark, and quiet",
+        "4. Avoid screens and blue light before bed",
+        "5. Exercise regularly but not close to bedtime",
+        "6. Limit caffeine and alcohol intake",
+        "7. Manage stress through meditation or relaxation techniques"
     ],
     "sleep_duration": [
-        "The recommended sleep duration is:\n- Adults: 7-9 hours\n- Teenagers: 8-10 hours\n- Children: 9-11 hours\n- Infants: 12-15 hours\n\nQuality is just as important as quantity. Make sure you're getting enough deep sleep and REM sleep cycles.",
-        "Most adults need 7-9 hours of sleep per night. However, individual needs may vary. Listen to your body and adjust your sleep schedule accordingly."
+        "Recommended sleep duration varies by age:",
+        "• Newborns (0-3 months): 14-17 hours",
+        "• Infants (4-11 months): 12-15 hours",
+        "• Toddlers (1-2 years): 11-14 hours",
+        "• Preschoolers (3-5 years): 10-13 hours",
+        "• School-age children (6-13 years): 9-11 hours",
+        "• Teenagers (14-17 years): 8-10 hours",
+        "• Young adults (18-25 years): 7-9 hours",
+        "• Adults (26-64 years): 7-9 hours",
+        "• Older adults (65+ years): 7-8 hours"
     ],
     "sleep_hygiene": [
-        "Sleep hygiene refers to healthy sleep habits. Here are the key principles:\n\n1. Environment:\n- Keep your bedroom cool (65-67°F/18-19°C)\n- Make it dark and quiet\n- Use comfortable bedding\n\n2. Habits:\n- Go to bed and wake up at the same time\n- Avoid large meals before bedtime\n- Limit caffeine and alcohol\n- Exercise regularly but not close to bedtime\n\n3. Routine:\n- Create a relaxing bedtime routine\n- Avoid screens 1-2 hours before bed\n- Use relaxation techniques like meditation or reading"
+        "Good sleep hygiene practices include:",
+        "1. Regular sleep schedule",
+        "2. Comfortable sleep environment",
+        "3. Limited daytime naps",
+        "4. Regular exercise",
+        "5. Balanced diet",
+        "6. Limited caffeine and alcohol",
+        "7. Stress management",
+        "8. Screen time management before bed"
     ],
     "sleep_routine": [
-        "Creating a good sleep routine is essential for quality sleep. Here's how:\n\n1. Set a consistent schedule:\n- Go to bed at the same time every night\n- Wake up at the same time every morning\n- Even on weekends, try to maintain this schedule\n\n2. Create a bedtime ritual:\n- Start 30-60 minutes before bed\n- Take a warm bath or shower\n- Read a book or listen to calming music\n- Practice relaxation exercises\n\n3. Prepare your environment:\n- Dim the lights\n- Set the temperature to 65-67°F/18-19°C\n- Remove electronic devices\n- Use white noise if needed"
+        "To establish a good sleep routine:",
+        "1. Set a consistent bedtime and wake time",
+        "2. Create a relaxing pre-sleep ritual",
+        "3. Avoid large meals close to bedtime",
+        "4. Exercise regularly but not near bedtime",
+        "5. Limit exposure to screens before bed",
+        "6. Keep your bedroom cool and dark",
+        "7. Use your bed only for sleep and intimacy"
     ],
     "sleep_quality_factors": [
-        "Several factors can affect your sleep quality:\n\n1. Lifestyle Factors:\n- Diet and nutrition\n- Exercise habits\n- Caffeine and alcohol consumption\n- Smoking\n\n2. Environmental Factors:\n- Room temperature\n- Light exposure\n- Noise levels\n- Mattress and pillow quality\n\n3. Psychological Factors:\n- Stress and anxiety\n- Depression\n- Work schedule\n- Screen time before bed\n\n4. Medical Factors:\n- Sleep disorders\n- Medications\n- Chronic pain\n- Other health conditions"
+        "Factors that affect sleep quality include:",
+        "1. Stress and anxiety levels",
+        "2. Physical activity and exercise",
+        "3. Diet and nutrition",
+        "4. Caffeine and alcohol consumption",
+        "5. Screen time and blue light exposure",
+        "6. Sleep environment (temperature, light, noise)",
+        "7. Medical conditions and medications",
+        "8. Sleep schedule consistency"
     ],
-    "default": ["I'm not sure about that. Could you rephrase your question?", "I'm here to help with sleep-related questions. Could you ask something specific about sleep?"]
+    "default": [
+        "I'm not sure about that. Could you rephrase your question?",
+        "I don't have information about that specific topic. Try asking about sleep quality, duration, or hygiene.",
+        "I'm here to help with sleep-related questions. Could you try asking something else?"
+    ]
 }
 
 def get_chatbot_response(message):
     message = message.lower()
     
+    # Check for help command
+    if 'help' in message:
+        return '\n'.join(CHATBOT_RESPONSES['help'])
+    
     # Check for greetings
-    if any(word in message for word in ["hi", "hello", "hey"]):
-        return np.random.choice(CHATBOT_RESPONSES["greeting"])
+    if any(word in message for word in ['hi', 'hello', 'hey', 'greetings']):
+        return np.random.choice(CHATBOT_RESPONSES['greetings'])
     
-    # Check for goodbyes
-    if any(word in message for word in ["bye", "goodbye", "see you"]):
-        return np.random.choice(CHATBOT_RESPONSES["goodbye"])
+    # Check for goodbye
+    if any(word in message for word in ['bye', 'goodbye', 'see you', 'later']):
+        return np.random.choice(CHATBOT_RESPONSES['goodbye'])
     
-    # Check for sleep tips requests
-    if any(word in message for word in ["improve", "tips", "advice", "help", "better"]):
-        return np.random.choice(CHATBOT_RESPONSES["sleep_tips"])
+    # Check for sleep quality related queries
+    if any(word in message for word in ['improve', 'better', 'quality', 'enhance']):
+        return '\n'.join(CHATBOT_RESPONSES['sleep_quality'])
     
-    # Check for sleep duration questions
-    if any(word in message for word in ["how long", "duration", "hours", "sleep time"]):
-        return np.random.choice(CHATBOT_RESPONSES["sleep_duration"])
+    # Check for sleep duration related queries
+    if any(word in message for word in ['duration', 'long', 'hours', 'time']):
+        return '\n'.join(CHATBOT_RESPONSES['sleep_duration'])
     
-    # Check for sleep hygiene questions
-    if any(word in message for word in ["hygiene", "habits", "practices"]):
-        return np.random.choice(CHATBOT_RESPONSES["sleep_hygiene"])
+    # Check for sleep hygiene related queries
+    if any(word in message for word in ['hygiene', 'practice', 'habit', 'routine']):
+        return '\n'.join(CHATBOT_RESPONSES['sleep_hygiene'])
     
-    # Check for sleep routine questions
-    if any(word in message for word in ["routine", "schedule", "ritual"]):
-        return np.random.choice(CHATBOT_RESPONSES["sleep_routine"])
+    # Check for sleep routine related queries
+    if any(word in message for word in ['routine', 'schedule', 'pattern', 'regular']):
+        return '\n'.join(CHATBOT_RESPONSES['sleep_routine'])
     
-    # Check for sleep quality factors
-    if any(word in message for word in ["affects", "factors", "influence", "cause"]):
-        return np.random.choice(CHATBOT_RESPONSES["sleep_quality_factors"])
+    # Check for sleep quality factors related queries
+    if any(word in message for word in ['factor', 'affect', 'influence', 'cause']):
+        return '\n'.join(CHATBOT_RESPONSES['sleep_quality_factors'])
     
     # Default response
-    return np.random.choice(CHATBOT_RESPONSES["default"])
+    return np.random.choice(CHATBOT_RESPONSES['default'])
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -110,11 +172,14 @@ def predict():
         # Recommendations based on the prediction
         recommendations = []
         if prediction == 1:
-            recommendations.append("Try to improve your sleep routine.")
-            recommendations.append("Consider reducing screen time before bed.")
+            recommendations.append("Your sleep quality is good! Keep maintaining your healthy sleep habits.")
         else:
-            recommendations.append("Your sleep quality is good, keep it up!")
-            recommendations.append("Maintain your healthy sleep habits.")
+            recommendations.append("Your sleep quality could be improved. Try these tips:")
+            recommendations.append("1. Maintain a consistent sleep schedule")
+            recommendations.append("2. Create a relaxing bedtime routine")
+            recommendations.append("3. Keep your bedroom cool and dark")
+            recommendations.append("4. Avoid screens before bed")
+            recommendations.append("5. Exercise regularly but not close to bedtime")
 
         # Return the result in JSON format
         return jsonify(

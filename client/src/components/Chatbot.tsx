@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, MessageCircle } from 'lucide-react';
+import { Send, X, MessageCircle } from 'lucide-react';
 
 interface Message {
   text: string;
@@ -9,17 +9,17 @@ interface Message {
 const INITIAL_OPTIONS = [
   "How can I improve my sleep quality?",
   "What's the recommended sleep duration?",
-  "Tell me about sleep hygiene",
-  "How to create a good sleep routine?",
-  "What affects sleep quality?"
+  "What are good sleep hygiene practices?",
+  "How to establish a sleep routine?",
+  "What factors affect sleep quality?"
 ];
 
-const Chatbot: React.FC = () => {
+export default function Chatbot() {
+  const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { text: "Hello! I'm your sleep assistant. How can I help you today? You can ask me questions about sleep or click on any of the options below.", isUser: false }
+    { text: "Hello! I'm your sleep assistant. Type 'help' to see available options or ask me any sleep-related questions.", isUser: false }
   ]);
   const [input, setInput] = useState('');
-  const [isOpen, setIsOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -29,6 +29,37 @@ const Chatbot: React.FC = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const handleSend = async () => {
+    if (!input.trim()) return;
+
+    const userMessage = input.trim();
+    setMessages(prev => [...prev, { text: userMessage, isUser: true }]);
+    setInput('');
+
+    try {
+      const response = await fetch('http://localhost:5000/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: userMessage }),
+      });
+
+      const data = await response.json();
+      setMessages(prev => [...prev, { text: data.response, isUser: false }]);
+    } catch (error) {
+      console.error('Error:', error);
+      setMessages(prev => [...prev, { text: "Sorry, I'm having trouble connecting to the server.", isUser: false }]);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
 
   const handleOptionClick = async (option: string) => {
     setMessages(prev => [...prev, { text: option, isUser: true }]);
@@ -45,32 +76,7 @@ const Chatbot: React.FC = () => {
       setMessages(prev => [...prev, { text: data.response, isUser: false }]);
     } catch (error) {
       console.error('Error:', error);
-      setMessages(prev => [...prev, { text: "Sorry, I'm having trouble connecting right now. Please try again later.", isUser: false }]);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim()) return;
-
-    const userMessage = input.trim();
-    setInput('');
-    setMessages(prev => [...prev, { text: userMessage, isUser: true }]);
-
-    try {
-      const response = await fetch('http://localhost:5000/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ message: userMessage }),
-      });
-
-      const data = await response.json();
-      setMessages(prev => [...prev, { text: data.response, isUser: false }]);
-    } catch (error) {
-      console.error('Error:', error);
-      setMessages(prev => [...prev, { text: "Sorry, I'm having trouble connecting right now. Please try again later.", isUser: false }]);
+      setMessages(prev => [...prev, { text: "Sorry, I'm having trouble connecting to the server.", isUser: false }]);
     }
   };
 
@@ -79,22 +85,22 @@ const Chatbot: React.FC = () => {
       {!isOpen ? (
         <button
           onClick={() => setIsOpen(true)}
-          className="bg-blue-600 text-white rounded-full p-4 shadow-lg hover:bg-blue-700 transition-colors"
+          className="bg-blue-500 text-white rounded-full p-4 shadow-lg hover:bg-blue-600 transition-colors"
         >
-          <Bot size={24} />
+          <MessageCircle size={24} />
         </button>
       ) : (
-        <div className="bg-white rounded-lg shadow-xl w-96 h-[500px] flex flex-col">
-          <div className="bg-blue-600 text-white p-4 rounded-t-lg flex justify-between items-center">
-            <h3 className="font-semibold">Sleep Assistant</h3>
+        <div className="bg-white rounded-lg shadow-xl w-96 h-[600px] flex flex-col">
+          <div className="p-4 border-b flex justify-between items-center">
+            <h2 className="text-lg font-semibold">Sleep Assistant</h2>
             <button
               onClick={() => setIsOpen(false)}
-              className="text-white hover:text-gray-200"
+              className="text-gray-500 hover:text-gray-700"
             >
-              ×
+              <X size={20} />
             </button>
           </div>
-          
+
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {messages.map((message, index) => (
               <div
@@ -104,30 +110,23 @@ const Chatbot: React.FC = () => {
                 <div
                   className={`max-w-[80%] rounded-lg p-3 ${
                     message.isUser
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-blue-500 text-white'
                       : 'bg-gray-100 text-gray-800'
                   }`}
                 >
-                  <div className="flex items-center gap-2 mb-1">
-                    {message.isUser ? <User size={16} /> : <Bot size={16} />}
-                    <span className="text-sm font-medium">
-                      {message.isUser ? 'You' : 'Assistant'}
-                    </span>
-                  </div>
-                  <p className="whitespace-pre-line">{message.text}</p>
+                  {message.text}
                 </div>
               </div>
             ))}
-            {messages.length === 1 && (
+            {messages[messages.length - 1]?.text.toLowerCase() === 'help' && (
               <div className="space-y-2 mt-4">
                 {INITIAL_OPTIONS.map((option, index) => (
                   <button
                     key={index}
                     onClick={() => handleOptionClick(option)}
-                    className="w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-2"
+                    className="w-full text-left p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                   >
-                    <MessageCircle size={16} className="text-blue-600" />
-                    <span className="text-gray-700">{option}</span>
+                    {option}
                   </button>
                 ))}
               </div>
@@ -135,27 +134,26 @@ const Chatbot: React.FC = () => {
             <div ref={messagesEndRef} />
           </div>
 
-          <form onSubmit={handleSubmit} className="p-4 border-t">
-            <div className="flex gap-2">
+          <div className="p-4 border-t">
+            <div className="flex space-x-2">
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
+                onKeyPress={handleKeyPress}
                 placeholder="Type your message..."
-                className="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <button
-                type="submit"
-                className="bg-blue-600 text-white rounded-lg px-4 py-2 hover:bg-blue-700 transition-colors"
+                onClick={handleSend}
+                className="bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600 transition-colors"
               >
                 <Send size={20} />
               </button>
             </div>
-          </form>
+          </div>
         </div>
       )}
     </div>
   );
-};
-
-export default Chatbot; 
+} 

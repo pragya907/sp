@@ -118,13 +118,13 @@ export default function Chatbot() {
                 </div>
               </div>
             ))}
-            {messages[messages.length - 1]?.text.toLowerCase() === 'help' && (
+            {messages[messages.length - 1]?.text.toLowerCase().includes('help') && (
               <div className="space-y-2 mt-4">
                 {INITIAL_OPTIONS.map((option, index) => (
                   <button
                     key={index}
                     onClick={() => handleOptionClick(option)}
-                    className="w-full text-left p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                    className="w-full text-left p-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200 text-blue-700 font-medium"
                   >
                     {option}
                   </button>

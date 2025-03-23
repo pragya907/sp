@@ -2,15 +2,17 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import pickle
 import numpy as np
-
-# Load the model and scaler (if needed)
-with open("sleepPredict.pkl", "rb") as file:
-    data = pickle.load(file)
-    loaded_model = data["model"]
-    loaded_scaler = data.get("scaler")  # Optional, check if the scaler is available
+from user_manager import UserManager
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app)
+
+# Initialize user manager
+user_manager = UserManager()
+
+# Load the model and scaler
+with open('sleepPredict.pkl', 'rb') as f:
+    model, scaler = pickle.load(f)
 
 # Enhanced response dictionary for the chatbot
 CHATBOT_RESPONSES = {
@@ -132,63 +134,101 @@ def get_chatbot_response(message):
     # Default response
     return np.random.choice(CHATBOT_RESPONSES['default'])
 
-@app.route("/chat", methods=["POST"])
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.json
+    username = data.get('username')
+    email = data.get('email')
+    
+    if not username or not email:
+        return jsonify({'success': False, 'message': 'Username and email are required'}), 400
+    
+    success, message = user_manager.create_user(username, email)
+    return jsonify({'success': success, 'message': message})
+
+@app.route('/chat', methods=['POST'])
 def chat():
-    try:
-        data = request.get_json()
-        message = data.get("message", "")
-        
-        if not message:
-            return jsonify({"error": "No message provided"}), 400
-            
-        response = get_chatbot_response(message)
-        return jsonify({"response": response})
-        
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+    data = request.json
+    message = data.get('message', '').lower()
+    username = data.get('username')
+    
+    response = get_chatbot_response(message, username)
+    
+    # Save chat history if username is provided
+    if username:
+        user_manager.save_chat_history(username, message, response)
+    
+    return jsonify({'response': response})
 
-@app.route("/predict", methods=["POST"])
+@app.route('/predict', methods=['POST'])
 def predict():
-    try:
-        data = request.get_json()
+    data = request.json
+    username = data.get('username')
+    
+    # Extract features from request
+    features = [
+        float(data.get('sleep_duration', 0)),
+        float(data.get('stress_level', 0)),
+        float(data.get('physical_activity', 0)),
+        float(data.get('screen_time', 0)),
+        float(data.get('caffeine_intake', 0))
+    ]
+    
+    # Scale features
+    features_scaled = scaler.transform([features])
+    
+    # Make prediction
+    prediction = model.predict(features_scaled)[0]
+    
+    # Generate recommendations based on prediction
+    recommendations = generate_recommendations(prediction, features)
+    
+    # Save sleep data if username is provided
+    if username:
+        sleep_data = {
+            'sleep_duration': features[0],
+            'stress_level': features[1],
+            'physical_activity': features[2],
+            'screen_time': features[3],
+            'caffeine_intake': features[4],
+            'sleep_quality': float(prediction)
+        }
+        user_manager.save_sleep_data(username, sleep_data)
+    
+    return jsonify({
+        'prediction': float(prediction),
+        'recommendations': recommendations
+    })
 
-        # Extracting the input values from the request
-        Q1 = float(data["Q1"])
-        Q4 = float(data["Q4"])
-        Q5 = float(data["Q5"])
-        Q6 = float(data["Q6"])
+def generate_recommendations(prediction, features):
+    recommendations = []
+    
+    if prediction < 0.5:
+        recommendations.append("Your sleep quality is below average. Consider these tips:")
+        if features[0] < 7:
+            recommendations.append("- Try to get at least 7-8 hours of sleep")
+        if features[1] > 0.7:
+            recommendations.append("- Practice stress-reduction techniques before bed")
+        if features[2] < 0.3:
+            recommendations.append("- Increase physical activity during the day")
+        if features[3] > 0.7:
+            recommendations.append("- Reduce screen time before bedtime")
+        if features[4] > 0.5:
+            recommendations.append("- Limit caffeine intake, especially in the evening")
+    else:
+        recommendations.append("Your sleep quality is good! Keep up these habits:")
+        if features[0] >= 7:
+            recommendations.append("- Maintain your healthy sleep duration")
+        if features[1] < 0.3:
+            recommendations.append("- Continue managing stress effectively")
+        if features[2] >= 0.5:
+            recommendations.append("- Keep up your good physical activity level")
+        if features[3] < 0.3:
+            recommendations.append("- Maintain your healthy screen time habits")
+        if features[4] < 0.3:
+            recommendations.append("- Keep your caffeine intake moderate")
+    
+    return recommendations
 
-        # Prepare the data for prediction
-        input_data = np.array([[Q1, Q4, Q5, Q6]])
-
-        # Scale input if the scaler is available
-        if loaded_scaler:
-            input_data = loaded_scaler.transform(input_data)
-
-        # Predicting the sleep quality using the model
-        prediction = loaded_model.predict(input_data)[0]
-        sleep_quality = "Bad Sleep" if prediction == 1 else "Good Sleep"
-
-        # Recommendations based on the prediction
-        recommendations = []
-        if prediction == 1:
-            recommendations.append("Your sleep quality is good! Keep maintaining your healthy sleep habits.")
-        else:
-            recommendations.append("Your sleep quality could be improved. Try these tips:")
-            recommendations.append("1. Maintain a consistent sleep schedule")
-            recommendations.append("2. Create a relaxing bedtime routine")
-            recommendations.append("3. Keep your bedroom cool and dark")
-            recommendations.append("4. Avoid screens before bed")
-            recommendations.append("5. Exercise regularly but not close to bedtime")
-
-        # Return the result in JSON format
-        return jsonify(
-            {"sleep_quality": sleep_quality, "recommendations": recommendations}
-        )
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400  # Return a JSON error message
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run(debug=True)

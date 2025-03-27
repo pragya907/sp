@@ -2,15 +2,93 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import pickle
 import numpy as np
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from werkzeug.security import generate_password_hash, check_password_hash
+import datetime
+import pandas as pd
+import os
+
+# Initialize users dictionary (in production, use a database)
+users = {}
+
+# Create data directory if it doesn't exist
+if not os.path.exists('data'):
+    os.makedirs('data')
+
+# Excel file path
+EXCEL_FILE = 'data/sleep_data.xlsx'
+
+# Create Excel file if it doesn't exist
+if not os.path.exists(EXCEL_FILE):
+    df = pd.DataFrame(columns=['username', 'date', 'Q1', 'Q4', 'Q5', 'Q6', 'sleep_quality'])
+    df.to_excel(EXCEL_FILE, index=False)
 
 # Load the model and scaler (if needed)
 with open("sleepPredict.pkl", "rb") as file:
     data = pickle.load(file)
     loaded_model = data["model"]
-    loaded_scaler = data.get("scaler")  # Optional, check if the scaler is available
+    loaded_scaler = data.get("scaler")
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app)
+
+# Setup JWT
+app.config['JWT_SECRET_KEY'] = 'your-secret-key'  # Change this to a secure secret key in production
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = datetime.timedelta(days=1)
+jwt = JWTManager(app)
+
+@app.route("/register", methods=["POST"])
+def register():
+    try:
+        data = request.get_json()
+        username = data.get("username")
+        password = data.get("password")
+        
+        if not username or not password:
+            return jsonify({"error": "Missing username or password"}), 400
+            
+        if username in users:
+            return jsonify({"error": "Username already exists"}), 400
+            
+        hashed_password = generate_password_hash(password)
+        users[username] = {
+            "password": hashed_password
+        }
+        
+        return jsonify({"message": "User registered successfully"}), 201
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+@app.route("/login", methods=["POST"])
+def login():
+    try:
+        data = request.get_json()
+        username = data.get("username")
+        password = data.get("password")
+        
+        if not username or not password:
+            return jsonify({"error": "Missing username or password"}), 400
+            
+        user = users.get(username)
+        if not user or not check_password_hash(user["password"], password):
+            return jsonify({"error": "Invalid username or password"}), 401
+            
+        access_token = create_access_token(identity=username)
+        return jsonify({
+            "access_token": access_token,
+            "username": username
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+# Protect routes that require authentication
+@app.route("/protected", methods=["GET"])
+@jwt_required()
+def protected():
+    current_user = get_jwt_identity()
+    return jsonify({"logged_in_as": current_user}), 200
 
 # Enhanced response dictionary for the chatbot
 CHATBOT_RESPONSES = {
@@ -165,30 +243,120 @@ def predict():
         if loaded_scaler:
             input_data = loaded_scaler.transform(input_data)
 
-        # Predicting the sleep quality using the model
+        # Make prediction
         prediction = loaded_model.predict(input_data)[0]
-        sleep_quality = "Bad Sleep" if prediction == 1 else "Good Sleep"
+        
+        # Important: Fix the prediction logic here
+        sleep_quality = "Good Sleep" if prediction == 0 else "Bad Sleep"
 
-        # Recommendations based on the prediction
+        # Recommendations based on the prediction and input values
         recommendations = []
-        if prediction == 1:
-            recommendations.append("Your sleep quality is good! Keep maintaining your healthy sleep habits.")
-        else:
-            recommendations.append("Your sleep quality could be improved. Try these tips:")
-            recommendations.append("1. Maintain a consistent sleep schedule")
-            recommendations.append("2. Create a relaxing bedtime routine")
-            recommendations.append("3. Keep your bedroom cool and dark")
-            recommendations.append("4. Avoid screens before bed")
-            recommendations.append("5. Exercise regularly but not close to bedtime")
+        if prediction == 0:  # Good Sleep
+            recommendations.append("Your sleep quality is predicted to be good! Here are tips to maintain it:")
+            if Q1 > 5:
+                recommendations.append("Consider stress management techniques to maintain good sleep")
+            if Q4 < 5:
+                recommendations.append("Keep up with regular exercise for optimal sleep")
+            if Q5 > 5:
+                recommendations.append("Monitor your caffeine intake to maintain sleep quality")
+            if Q6 > 5:
+                recommendations.append("Consider reducing screen time before bed")
+        else:  # Bad Sleep
+            recommendations.append("Here are recommendations to improve your sleep quality:")
+            if Q1 > 5:
+                recommendations.append("Practice relaxation techniques to reduce stress levels")
+            if Q4 < 5:
+                recommendations.append("Increase your daily physical activity")
+            if Q5 > 5:
+                recommendations.append("Reduce caffeine intake, especially in the afternoon")
+            if Q6 > 5:
+                recommendations.append("Limit screen exposure before bedtime")
 
-        # Return the result in JSON format
-        return jsonify(
-            {"sleep_quality": sleep_quality, "recommendations": recommendations}
-        )
+        return jsonify({
+            "sleep_quality": sleep_quality,
+            "recommendations": recommendations
+        })
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 400  # Return a JSON error message
+        return jsonify({"error": str(e)}), 400
 
+@app.route("/save-prediction", methods=["POST"])
+@jwt_required()
+def save_prediction():
+    try:
+        current_user = get_jwt_identity()
+        data = request.get_json()
+        
+        # Extract prediction data
+        prediction_data = {
+            'username': current_user,
+            'date': datetime.datetime.now().strftime('%Y-%m-%d'),
+            'Q1': data['Q1'],
+            'Q4': data['Q4'],
+            'Q5': data['Q5'],
+            'Q6': data['Q6'],
+            'sleep_quality': "Bad Sleep" if data.get('prediction') == 1 else "Good Sleep"
+        }
+        
+        # Read existing data
+        df = pd.read_excel(EXCEL_FILE)
+        
+        # Append new data
+        df = pd.concat([df, pd.DataFrame([prediction_data])], ignore_index=True)
+        
+        # Save back to Excel
+        df.to_excel(EXCEL_FILE, index=False)
+        
+        return jsonify({"message": "Data saved successfully"}), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+@app.route("/get-user-stats", methods=["GET"])
+@jwt_required()
+def get_user_stats():
+    try:
+        current_user = get_jwt_identity()
+        
+        # Read Excel file
+        df = pd.read_excel(EXCEL_FILE)
+        
+        # Filter data for current user
+        user_data = df[df['username'] == current_user]
+        
+        if user_data.empty:
+            return jsonify({
+                "message": "No data found for user",
+                "stats": None
+            }), 200
+            
+        # Calculate statistics
+        total_predictions = len(user_data)
+        good_sleep_count = len(user_data[user_data['sleep_quality'] == 'Good Sleep'])
+        bad_sleep_count = len(user_data[user_data['sleep_quality'] == 'Bad Sleep'])
+        
+        # Get last 7 days of data
+        last_7_days = user_data.sort_values('date', ascending=False).head(7)
+        daily_stats = last_7_days.groupby('date')['sleep_quality'].value_counts().unstack(fill_value=0).to_dict()
+        
+        # Average scores
+        avg_scores = {
+            'Q1': user_data['Q1'].mean(),
+            'Q4': user_data['Q4'].mean(),
+            'Q5': user_data['Q5'].mean(),
+            'Q6': user_data['Q6'].mean()
+        }
+        
+        return jsonify({
+            "total_predictions": total_predictions,
+            "good_sleep_count": good_sleep_count,
+            "bad_sleep_count": bad_sleep_count,
+            "daily_stats": daily_stats,
+            "avg_scores": avg_scores
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
 if __name__ == "__main__":
     app.run(debug=True)
